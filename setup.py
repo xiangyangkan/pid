@@ -10,7 +10,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setuptools.setup(
     name='mix-pid',
-    version='0.0.1',
+    version='0.0.2',
     description='锅炉压力的PID控制算法',
     long_description=long_description,
     long_description_content_type='text/markdown',
