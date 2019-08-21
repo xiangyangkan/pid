@@ -28,9 +28,8 @@ class PID(object):
     """
 
     def __init__(self, kp=1.0, ki=0.0, kd=0.0,
-                 set_pressure=0,
+                 set_pressure=0.5,
                  thresholds=(-10, 10),
-                 gear=1,
                  throttle_limits=((30, 60), (40, 65), (50, 70)),
                  output_limits=(None, None),
                  auto_mode=True):
@@ -40,7 +39,6 @@ class PID(object):
         :param kd: The value for the derivative gain kd
         :param set_pressure: The initial set_pressure that the PID will try to achieve
         :param thresholds: the output threshold to decide whether to change
-        :param gear: the gear of burner
         :param throttle_limits: the limits of throttle on every gear of burner
         :param output_limits: The initial output limits to use, given as an iterable with 2 elements, for example:
                               (lower, upper). The output will never go below the lower limit or above the upper limit.
@@ -52,34 +50,31 @@ class PID(object):
         self.kp, self.ki, self.kd = kp, ki, kd
         self.set_pressure = set_pressure
         self.lower_threshold, self.upper_threshold = thresholds
-        self.gear = gear
         self.throttle_limits = throttle_limits
         self._min_output, self._max_output = output_limits
         self._auto_mode = auto_mode
+
         self._proportional = 0
         self._integral = 0
         self._derivative = 0
         self._last_time = _current_time()
-        self._last_output = None
-        self._last_input = None
+        self._last_pressure = None
 
-    def __call__(self, input_pressure, input_angle):
+    def __call__(self, input_pressure, input_gear, input_angle):
         """
-        Call the PID controller with *input_pressure
-        * and calculate and return a control output if sample_time seconds has
-        passed since the last update. If no new output is calculated, return the previous output instead (or None if
-        no value has been calculated yet).
+        Call the PID controller with *input_gear*, *input_pressure*, *input_angle*
+        and calculate and return a control output.
         """
         if not self.auto_mode:
-            return self._last_output
+            return input_gear, input_angle
 
         now = _current_time()
-        dt = now - self._last_time if now - self._last_time else 1e-16
+        dt = now - self._last_time if now - self._last_time else 1e-3
 
         # compute error terms
         error = self.set_pressure - input_pressure
 
-        d_input = input_pressure - (self._last_input if self._last_input is not None else input_pressure)
+        d_input = input_pressure - (self._last_pressure if self._last_pressure is not None else input_pressure)
 
         # compute the proportional term
         self._proportional = self.kp * error
@@ -95,24 +90,28 @@ class PID(object):
         output = _clamp(output, self.output_limits)
 
         # keep track of state
-        self._last_output = output
-        self._last_input = input_pressure
+        self._last_pressure = input_pressure
         self._last_time = now
 
         # decision conditions
         if output > self.upper_threshold:
-            if input_angle - 5 < self.throttle_limits[self.gear - 1][0]:
-                self.gear += 1
+            if input_angle - 5 < self.throttle_limits[input_gear - 1][0]:
+                output_gear = input_gear + 1
+                output_angle = input_angle
             else:
                 output_angle = input_angle - 5
+                output_gear = input_gear
         elif output < self.lower_threshold:
-            if input_angle + 5 > self.throttle_limits[self.gear - 1][1]:
-                self.gear -= 1
+            if input_angle + 5 > self.throttle_limits[input_gear - 1][1]:
+                output_gear = input_gear - 1
+                output_angle = input_angle
             else:
                 output_angle = input_angle + 5
+                output_gear = input_gear
         else:
+            output_gear = input_gear
             output_angle = input_angle
-        return self.gear, output_angle
+        return output_gear, output_angle
 
     @property
     def components(self):
@@ -142,23 +141,22 @@ class PID(object):
         """Enable or disable the PID controller"""
         self.set_auto_mode(enabled)
 
-    def set_auto_mode(self, enabled, last_output=None):
+    def set_auto_mode(self, enabled, input_pressure=None):
         """
         Enable or disable the PID controller, optionally setting the last output value.
         This is useful if some system has been manually controlled and if the PID should take over.
         In that case, pass the last output variable (the control variable) and it will be set as the starting
         I-term when the PID is set to auto mode.
         :param enabled: Whether auto mode should be enabled, True or False
-        :param last_output: The last output, or the control variable, that the PID should start from
+        :param input_pressure: The last output, or the control variable, that the PID should start from
                             when going from manual mode to auto mode
         """
         if enabled and not self._auto_mode:
             # switching from manual mode to auto, reset
-            self._last_output = last_output
-            self._last_input = None
+            self._last_pressure = input_pressure
             self._last_time = _current_time()
             self._proportional = 0
-            self._integral = (last_output if last_output is not None else 0)
+            self._integral = (input_pressure if input_pressure is not None else 0)
             self._integral = _clamp(self._integral, self.output_limits)
 
         self._auto_mode = enabled
@@ -187,4 +185,4 @@ class PID(object):
         self._max_output = max_output
 
         self._integral = _clamp(self._integral, self.output_limits)
-        self._last_output = _clamp(self._last_output, self.output_limits)
+        self._last_pressure = _clamp(self._last_pressure, self.output_limits)
