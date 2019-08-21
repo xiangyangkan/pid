@@ -1,7 +1,7 @@
 PID module
 ----------
 
-.. automodule:: pid.PID
+.. automodule:: pid.pid
     :members:
     :undoc-members:
     :show-inheritance:
