@@ -20,7 +20,7 @@ pid = PID(kp=1.0, ki=0.0, kd=0.0,
 pid(input_gear=1, input_pressure=0.4, input_angle=59)
 ```
 
-完整的API文档在 [这里](https://mix-pid.readthedocs.io/en/latest/simple_pid.html#module-simple_pid.PID).
+完整的API文档在 [这里](https://pid.readthedocs.io/zh/latest/index.html).
 
 ## 安装
 ```
