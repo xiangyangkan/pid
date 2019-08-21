@@ -40,9 +40,6 @@ setuptools.setup(
     ],
     keywords='pid controller control',
     packages=setuptools.find_packages(),
-    extras_require={
-        'docs': ['m2r', 'sphinx-rtd-theme']
-    },
     project_urls={
         'Documentation': 'https://mix-pid.readthedocs.io/',
     },
